@@ -16,15 +16,21 @@ export async function getTodos(req, res) { // Make it async
 
 // @desc    Create a new todo
 // @route   POST /api/todos
-export async function createTodo(req, res) { // Make it async
-  const { task } = req.body;
-  if (!task) {
-    return res.status(400).json({ error: 'Task content is required' });
+export async function createTodo(req, res) {
+  const { title, description } = req.body;
+
+  if (!title || !description) {
+    return res.status(400).json({ error: 'Title and description are required' });
   }
 
-  const newTodo = { task: task, completed: false };
+  const newTodo = {
+    title,
+    description,
+    completed: false,
+  };
+
   try {
-    const results = await query('INSERT INTO todos SET ?', newTodo); // Use 'await query'
+    const results = await query('INSERT INTO todos SET ?', newTodo);
     res.status(201).json({ id: results.insertId, ...newTodo });
   } catch (error) {
     console.error('Error creating todo:', error);
