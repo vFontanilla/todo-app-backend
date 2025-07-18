@@ -16,6 +16,28 @@ export async function getTodos(req, res) { // Make it async
 
 // @desc    Create a new todo
 // @route   POST /api/todos
+// export async function createTodo(req, res) {
+//   const { title, description } = req.body;
+
+//   if (!title || !description) {
+//     return res.status(400).json({ error: 'Title and description are required' });
+//   }
+
+//   const newTodo = {
+//     title,
+//     description,
+//     completed: false,
+//   };
+
+//   try {
+//     const results = await query('INSERT INTO todos SET ?', newTodo);
+//     res.status(201).json({ id: results.insertId, ...newTodo });
+//   } catch (error) {
+//     console.error('Error creating todo:', error);
+//     res.status(500).json({ error: 'Failed to create todo: ' + error.message });
+//   }
+// }
+
 export async function createTodo(req, res) {
   const { title, description } = req.body;
 
@@ -31,7 +53,16 @@ export async function createTodo(req, res) {
 
   try {
     const results = await query('INSERT INTO todos SET ?', newTodo);
-    res.status(201).json({ id: results.insertId, ...newTodo });
+    const insertedId = results.insertId;
+
+    // ✅ Fetch the full todo including DB-generated fields
+    const fullTodo = await query('SELECT * FROM todos WHERE id = ?', [insertedId]);
+
+    if (!fullTodo || fullTodo.length === 0) {
+      return res.status(500).json({ error: 'Failed to fetch the newly created todo' });
+    }
+
+    res.status(201).json(fullTodo[0]);
   } catch (error) {
     console.error('Error creating todo:', error);
     res.status(500).json({ error: 'Failed to create todo: ' + error.message });
@@ -42,17 +73,31 @@ export async function createTodo(req, res) {
 // @route   PUT /api/todos/:id
 export async function updateTodo(req, res) {
   const { id } = req.params;
-  let { completed } = req.body;
+  let { completed, title, description } = req.body;
 
   try {
-    completed = completed === true || completed === 'true' ? 1 : 0;
-    console.log(`Updating todo with id: ${id}, completed: ${completed}`);
 
-    const results = await query('UPDATE todos SET completed = ? WHERE id = ?', [completed, id]);
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ error: 'Todo not found' });
+    // if completed is provided
+    if (completed !== undefined) {
+      completed = completed === true || completed === 'true' ? 1 : 0;
+      console.log(`Updating todo with id: ${id}, completed: ${completed}`);
+
+      const results = await query('UPDATE todos SET completed = ? WHERE id = ?', [completed, id]);
+      if (results.affectedRows === 0) {
+        return res.status(404).json({ error: 'Todo not found' });
+      }
     }
 
+    // Update title and description if both are provided
+    if (title && description) {
+      console.log(`Updating todo with id: ${id}, title: ${title}, description: ${description}`);
+      const updateFields = await query('UPDATE todos SET title = ?, description = ? WHERE id = ?', [title, description, id]);
+      if (updateFields.affectedRows === 0) {
+        return res.status(404).json({ error: 'Todo not found' });
+      }
+    }
+
+    //fetch the updated todo
     const result = await query('SELECT * FROM todos WHERE id = ?', [id]);
     const updatedTodo = Array.isArray(result) ? result[0] : result;
 
